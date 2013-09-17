@@ -256,7 +256,12 @@ SymbolRecognizer.prototype.cloudDistance = function(pts1, pts2, start)
 	return sum;
 }
 
+SymbolRecognizer.prototype.config = function(options) {
 
-	window.Symbol = new SymbolRecognizer();
+	// @todo
+
+};
+
+window.Symbol = new SymbolRecognizer();
 
 })(window);
