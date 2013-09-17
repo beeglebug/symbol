@@ -182,6 +182,9 @@
 	
 	SymbolRecognizer.prototype.recognize = function(pointsList) {
 
+		// If not enough points are passed in make sure it doesn't break.
+		if ( pointsList[0].length <= 1 ) { return; }
+
 		var cloud = new PointCloud("user", pointsList);
 	
 		var b = +Infinity;
