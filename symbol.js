@@ -1,11 +1,42 @@
+/**
+ * The MIT License (MIT)
+ * Copyright (c) 2013 Stuart Lee
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy of
+ * this software and associated documentation files (the "Software"), to deal in
+ * the Software without restriction, including without limitation the rights to
+ * use, copy, modify, merge, publish, distribute, sublicense, and/or sell copies of
+ * the Software, and to permit persons to whom the Software is furnished to do so,
+ * subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in all
+ * copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY, FITNESS
+ * FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE AUTHORS OR
+ * COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER
+ * IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
+ * CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
+ *
+ * Original P$ algorithm from: http://depts.washington.edu/aimgroup/proj/dollar/pdollar.html
+ */
+;(function(window, undefined) {
 
-function Point(x, y, id) {
+var Point = function(x, y, id) {
 	this.x = x;
 	this.y = y;
 	this.id = id;
 }
 
-function PointCloud(name, pointsList) {
+Point.prototype.distanceTo = function(p2)
+{
+	var dx = p2.x - this.x;
+	var dy = p2.y - this.y;
+	return Math.sqrt(dx * dx + dy * dy);
+}
+
+var PointCloud = function(name, pointsList) {
 
 	this.resolution = 32;
 	this.name = name;
@@ -32,7 +63,7 @@ PointCloud.prototype.resample = function() {
 	{
 		if (points[i].id == points[i-1].id)
 		{
-			var d = Distance(points[i - 1], points[i]);
+			var d = points[i - 1].distanceTo(points[i]);
 			if ((D + d) >= I)
 			{
 				var qx = points[i - 1].x + ((I - D) / d) * (points[i].x - points[i - 1].x);
@@ -55,7 +86,7 @@ PointCloud.prototype.pathLength = function() {
 	for (var i = 1; i < this.points.length; i++)
 	{
 		if (this.points[i].id == this.points[i-1].id)
-			d += Distance(this.points[i - 1], this.points[i]);
+			d += this.points[i - 1].distanceTo(this.points[i]);
 	}
 	return d;
 }
@@ -103,40 +134,87 @@ PointCloud.prototype.centroid = function(points) {
 	return new Point(x, y, 0);
 }
 
-function PDollarRecognizer() {
+var SymbolRecognizer = function() {
 
 	this.pointClouds = [];
 
-	this.pointClouds.push( new PointCloud("N", [
-		[[177,92],[177,2]],
-		[[182,1],[246,95]],
-		[[247,87],[247,1]]
-	]));
+	this.listeners = {};
 
-	this.pointClouds.push( new PointCloud("line", [
-		[[12,347],[119,347]]
-	]));
+	this.registerEvents(document);
 
-	this.recognize = function(pointsList) {
-
-		var cloud = new PointCloud("user", pointsList);
-
-		var b = +Infinity;
-		var u = -1;
-		for (var i = 0; i < this.pointClouds.length; i++) // for each point-cloud template
-		{
-			var d = this.greedyCloudMatch(cloud, this.pointClouds[i]);
-			if (d < b) {
-				b = d; // best (least) distance
-				u = i; // point-cloud
-			}
-		}
-		return (u == -1) ? 'new result' : [ this.pointClouds[u].name, Math.max((b - 2.0) / -2.0, 0.0) ];
-	};
 }
 
+SymbolRecognizer.prototype.registerEvents = function(target) {
 
-PDollarRecognizer.prototype.greedyCloudMatch = function(cloud, P) {
+	var drawing = false;
+	var symbol = [];
+	var line = 0;
+	var self = this;
+
+	target.addEventListener('mousedown', function(e) {
+		drawing = true;
+		symbol = [];
+		line++;
+	});
+
+	target.addEventListener('mousemove', function(e) {
+		if(drawing) {
+			symbol.push([e.offsetX, e.offsetY]);
+		}
+	});
+
+	target.addEventListener('mouseup', function(e) {
+		drawing = false;
+		var result = self.recognize([symbol]);
+	});
+
+};
+
+SymbolRecognizer.prototype.on = function(name, callback) {
+
+	if(!this.listeners[name]) {
+		this.listeners[name] = [];
+	}
+
+	this.listeners[name].push(callback);
+
+};
+
+SymbolRecognizer.prototype.recognize = function(pointsList) {
+
+	var cloud = new PointCloud("user", pointsList);
+
+	var b = +Infinity;
+	var u = -1;
+	for (var i = 0; i < this.pointClouds.length; i++) // for each point-cloud template
+	{
+		var d = this.greedyCloudMatch(cloud, this.pointClouds[i]);
+		if (d < b) {
+			b = d; // best (least) distance
+			u = i; // point-cloud
+		}
+	}
+	var match = this.pointClouds[u].name;
+	var val = Math.max((b - 2.0) / -2.0, 0.0);
+
+	if(val <= 0) { return false; }
+
+	if(this.listeners[match]) {
+		for(var i = 0; i < this.listeners[match].length; i++) {
+			this.listeners[match][i](val);
+		}
+	}
+};
+
+
+SymbolRecognizer.prototype.add = function(name, pointList) {
+
+	this.pointClouds.push( new PointCloud(name, pointList) );
+
+};
+
+
+SymbolRecognizer.prototype.greedyCloudMatch = function(cloud, P) {
 	var points = cloud.points;
 	var e = 0.50;
 	var step = Math.floor(Math.pow(points.length, 1 - e));
@@ -149,7 +227,7 @@ PDollarRecognizer.prototype.greedyCloudMatch = function(cloud, P) {
 	return min;
 }
 
-PDollarRecognizer.prototype.cloudDistance = function(pts1, pts2, start)
+SymbolRecognizer.prototype.cloudDistance = function(pts1, pts2, start)
 {
 	var matched = new Array(pts1.length); // pts1.length == pts2.length
 	for (var k = 0; k < pts1.length; k++)
@@ -163,7 +241,7 @@ PDollarRecognizer.prototype.cloudDistance = function(pts1, pts2, start)
 		for (var j = 0; j < matched.length; j++)
 		{
 			if (!matched[j]) {
-				var d = Distance(pts1[i], pts2[j]);
+				var d = pts1[i].distanceTo(pts2[j]);
 				if (d < min) {
 					min = d;
 					index = j;
@@ -178,9 +256,7 @@ PDollarRecognizer.prototype.cloudDistance = function(pts1, pts2, start)
 	return sum;
 }
 
-function Distance(p1, p2) // Euclidean distance between two points
-{
-	var dx = p2.x - p1.x;
-	var dy = p2.y - p1.y;
-	return Math.sqrt(dx * dx + dy * dy);
-}
+
+	window.Symbol = new SymbolRecognizer();
+
+})(window);
