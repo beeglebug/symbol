@@ -53,6 +53,38 @@ Point.prototype.distanceTo = function(point) {
 	return Math.sqrt(dx * dx + dy * dy);
 };
 
+Point.prototype.clone = function() {
+	return new Point(this.x, this.y, this.id);
+};
+
+Point.prototype.add = function(point) {
+	this.x += point.x;
+	this.y += point.y;
+	return this;
+};
+
+Point.prototype.subtract = function(point) {
+	this.x -= point.x;
+	this.y -= point.y;
+	return this;
+};
+
+Point.prototype.multiply = function(scalar) {
+	this.x *= scalar;
+	this.y *= scalar;
+	return this;
+};
+
+Point.prototype.divide = function(scalar) {
+	this.x /= scalar;
+	this.y /= scalar;
+	return this;
+};
+
+Point.prototype._add = function(point) { return this.clone().add(point); }
+Point.prototype._subtract = function(point) { return this.clone().subtract(point); }
+Point.prototype._multiply = function(scalar) { return this.clone().multiply(scalar); }
+Point.prototype._divide = function(scalar) { return this.clone().divide(scalar); }
 
 /**
  * A collection of Points representing a symbol
@@ -65,11 +97,13 @@ var PointCloud = function(name, pointsList) {
 	this.resolution = 32;
 	this.name = name;
 
+	// keep a copy
+	this.originalPoints = pointsList.slice(0);
 	this.points = [];
 
-	for(var r = 0; r < pointsList.length; r++) {
-		for(var i = 0; i < pointsList[r].length; i++) {
-			this.points.push(new Point( pointsList[r][i][0], pointsList[r][i][1], r ));
+	for(var path = 0; path < pointsList.length; path++) {
+		for(var point = 0; point < pointsList[path].length; point++) {
+			this.points.push( new Point( pointsList[path][point][0], pointsList[path][point][1], path ) );
 		}
 	}
 
@@ -88,7 +122,7 @@ PointCloud.prototype.resample = function() {
 	var points = this.points;
 	var I = this.pathLength() / (this.resolution - 1); // interval length
 	var D = 0.0;
-	var newpoints = new Array(points[0]);
+	var resampled = new Array(points[0]);
 	for (var i = 1; i < points.length; i++) {
 		if (points[i].id == points[i-1].id) {
 			var d = points[i - 1].distanceTo(points[i]);
@@ -96,7 +130,7 @@ PointCloud.prototype.resample = function() {
 				var qx = points[i - 1].x + ((I - D) / d) * (points[i].x - points[i - 1].x);
 				var qy = points[i - 1].y + ((I - D) / d) * (points[i].y - points[i - 1].y);
 				var q = new Point(qx, qy, points[i].id);
-				newpoints[newpoints.length] = q; // append new point 'q'
+				resampled[resampled.length] = q; // append new point 'q'
 				points.splice(i, 0, q); // insert 'q' at position i in points s.t. 'q' will be the next i
 				D = 0.0;
 			} else {
@@ -104,11 +138,11 @@ PointCloud.prototype.resample = function() {
 			}
 		}
 	}
-	if (newpoints.length == this.resolution - 1) { // sometimes we fall a rounding-error short of adding the last point, so add it if so
-		newpoints[newpoints.length] = new Point(points[points.length - 1].x, points[points.length - 1].y, points[points.length - 1].id);
+	if (resampled.length == this.resolution - 1) { // sometimes we fall a rounding-error short of adding the last point, so add it if so
+		resampled[resampled.length] = new Point(points[points.length - 1].x, points[points.length - 1].y, points[points.length - 1].id);
 	}
 
-	return newpoints;
+	return resampled;
 };
 
 
@@ -136,23 +170,26 @@ PointCloud.prototype.pathLength = function() {
  */
 PointCloud.prototype.scale = function() {
 
-	var points = this.points;
-	var minX = +Infinity, maxX = -Infinity, minY = +Infinity, maxY = -Infinity;
-	for (var i = 0; i < points.length; i++) {
-		minX = Math.min(minX, points[i].x);
-		minY = Math.min(minY, points[i].y);
-		maxX = Math.max(maxX, points[i].x);
-		maxY = Math.max(maxY, points[i].y);
-	}
-	var size = Math.max(maxX - minX, maxY - minY);
-	var newpoints = new Array();
-	for (var i = 0; i < points.length; i++) {
-		var qx = (points[i].x - minX) / size;
-		var qy = (points[i].y - minY) / size;
-		newpoints[newpoints.length] = new Point(qx, qy, points[i].id);
+	var scaled = [];
+
+	var min = new Point(+Infinity, +Infinity, 0);
+	var max = new Point(-Infinity, -Infinity, 0);
+
+	// calculate min and max bounds
+	for (var i = 0; i < this.points.length; i++) {
+		min.x = Math.min(min.x, this.points[i].x);
+		min.y = Math.min(min.y, this.points[i].y);
+		max.x = Math.max(max.x, this.points[i].x);
+		max.y = Math.max(max.y, this.points[i].y);
 	}
 
-	return newpoints;
+	var size = Math.max(max.x - min.x, max.y - min.y);
+
+	for (var i = 0; i < this.points.length; i++) {
+		scaled.push( this.points[i]._subtract(min).divide(size) );
+	}
+
+	return scaled;
 };
 
 
@@ -162,18 +199,15 @@ PointCloud.prototype.scale = function() {
  */
 PointCloud.prototype.translateTo = function(origin) {
 
-	var centroid = this.centroid();
-	var newpoints = new Array();
+	var translated = [],
+		centroid = this.centroid(),
+		offset = origin._subtract(centroid);
 
-	for (var i = 0; i < this.points.length; i++) {
-		newpoints[newpoints.length] = new Point(
-			this.points[i].x + origin.x - centroid.x,
-			this.points[i].y + origin.y - centroid.y,
-			this.points[i].id
-		);
+	for (var i = 0, len = this.points.length; i < len; i++) {
+		translated.push( this.points[i]._add(offset) );
 	}
 
-	return newpoints;
+	return translated;
 };
 
 
@@ -198,6 +232,52 @@ PointCloud.prototype.centroid = function(points) {
 
 
 /**
+ * total distance to another point cloud
+ * @param  {[type]} cloud [description]
+ * @param  {[type]} start [description]
+ * @return {[type]}       [description]
+ */
+PointCloud.prototype.distanceTo = function(cloud, start) {
+
+	var sum = 0, numPoints = this.points.length,
+		i = start, j, k, len,
+		weight, distance,
+		matched = [],
+		index = -1,
+		min = +Infinity;
+
+	for (k = 0; k < numPoints; k++) { matched[k] = false; }
+
+	do {
+
+		index = -1;
+		min = +Infinity;
+
+		for (j = 0, len = matched.length; j < len; j++) {
+
+			if (matched[j]) { continue; }
+
+			distance = this.points[i].distanceTo( cloud.points[j] );
+
+			if (distance < min) {
+				min = distance;
+				index = j;
+			}
+		}
+
+		matched[index] = true;
+		weight = 1 - ((i - start + numPoints) % numPoints) / numPoints;
+		sum += weight * min;
+		i = (i + 1) % numPoints;
+
+	} while (i != start);
+
+	return sum;
+};
+
+
+
+/**
  * SymbolRecognizer
  * @constructor
  */
@@ -211,9 +291,8 @@ var SymbolRecognizer = function() {
 
 
 /**
- * [registerEvents description]
- * @param  {[type]} target [description]
- * @return {[type]}        [description]
+ * register mouse/touch events on an element
+ * @param {HTMLElement} target which element to register event listeners on
  */
 SymbolRecognizer.prototype.registerEvents = function(target) {
 
@@ -271,13 +350,16 @@ SymbolRecognizer.prototype.recognize = function(pointsList) {
 
 	var b = +Infinity;
 	var u = -1;
-	for (var i = 0; i < this.pointClouds.length; i++) { // for each point-cloud template
+
+	// for each point cloud
+	for (var i = 0; i < this.pointClouds.length; i++) {
 		var d = this.greedyCloudMatch(cloud, this.pointClouds[i]);
 		if (d < b) {
-			b = d; // best (least) distance
-			u = i; // point-cloud
+			b = d;
+			u = i;
 		}
 	}
+
 	var match = this.pointClouds[u].name;
 	var val = Math.max((b - 2.0) / -2.0, 0.0);
 
@@ -304,58 +386,26 @@ SymbolRecognizer.prototype.add = function(name, pointList) {
 
 
 /**
- * [greedyCloudMatch description]
- * @param  {[type]} cloud [description]
- * @param  {[type]} P     [description]
- * @return {[type]}       [description]
+ * something something clouds
+ * @param {PointCloud} cloud1 a point cloud
+ * @param {PointCloud} cloud2 another point cloud
+ * @return {Number} the smallest distance between clouds
  */
-SymbolRecognizer.prototype.greedyCloudMatch = function(cloud, P) {
+SymbolRecognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
 
-	var points = cloud.points;
-	var e = 0.50;
-	var step = Math.floor(Math.pow(points.length, 1 - e));
-	var min = +Infinity;
-	for (var i = 0; i < points.length; i += step) {
-		var d1 = this.cloudDistance(points, P.points, i);
-		var d2 = this.cloudDistance(P.points, points, i);
-		min = Math.min(min, Math.min(d1, d2)); // min3
+	var i, len = cloud1.points.length,
+		step = Math.floor(Math.pow(len, 0.5)),
+		min = +Infinity, distance1, distance2;
+
+	for (i = 0; i < len; i += step) {
+
+		distance1 = cloud1.distanceTo(cloud2, i);
+		distance2 = cloud2.distanceTo(cloud1, i);
+
+		min = Math.min(min, Math.min(distance1, distance2));
 	}
+
 	return min;
-};
-
-
-/**
- * [cloudDistance description]
- * @param  {[type]} pts1  [description]
- * @param  {[type]} pts2  [description]
- * @param  {[type]} start [description]
- * @return {[type]}       [description]
- */
-SymbolRecognizer.prototype.cloudDistance = function(pts1, pts2, start) {
-
-	var matched = new Array(pts1.length); // pts1.length == pts2.length
-	for (var k = 0; k < pts1.length; k++) {	matched[k] = false;	}
-	var sum = 0;
-	var i = start;
-	do {
-		var index = -1;
-		var min = +Infinity;
-		for (var j = 0; j < matched.length; j++) {
-			if (!matched[j]) {
-				var d = pts1[i].distanceTo(pts2[j]);
-				if (d < min) {
-					min = d;
-					index = j;
-				}
-			}
-		}
-		matched[index] = true;
-		var weight = 1 - ((i - start + pts1.length) % pts1.length) / pts1.length;
-		sum += weight * min;
-		i = (i + 1) % pts1.length;
-	} while (i != start);
-
-	return sum;
 };
 
 
