@@ -22,8 +22,7 @@
  * Original P$ algorithm from: http://depts.washington.edu/aimgroup/proj/dollar/pdollar.html
  */
 
-;(function(window, undefined) {
-
+;(function(window) {
 
 /**
  * a 2D Point
@@ -215,7 +214,7 @@ PointCloud.prototype.translateTo = function(origin) {
  * calculate the center of the cloud
  * @return {Point} a new Point representing the exact center of the cloud
  */
-PointCloud.prototype.centroid = function(points) {
+PointCloud.prototype.centroid = function() {
 
 	var centroid = new Point(0,0,0);
 
@@ -301,7 +300,7 @@ SymbolRecognizer.prototype.registerEvents = function(target) {
 	var line = 0;
 	var self = this;
 
-	target.addEventListener('mousedown', function(e) {
+	target.addEventListener('mousedown', function() {
 		drawing = true;
 		symbol = [];
 		line++;
@@ -313,9 +312,9 @@ SymbolRecognizer.prototype.registerEvents = function(target) {
 		}
 	});
 
-	target.addEventListener('mouseup', function(e) {
+	target.addEventListener('mouseup', function() {
 		drawing = false;
-		var result = self.recognize([symbol]);
+		self.recognize([symbol]);
 	});
 };
 
@@ -416,8 +415,9 @@ SymbolRecognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
  */
 SymbolRecognizer.prototype.config = function(options) {
 
-	// @todo
-
+	for(option in options) {
+		// @todo
+	}
 };
 
 // export global
