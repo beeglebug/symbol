@@ -1,0 +1,22 @@
+<html>
+<head>
+	<title>symbol test</title>
+	<script src="./dist/symbol.min.js"></script>
+</head>
+<body>
+<script>
+
+Symbol.add('N', [ [[177,92],[177,2]], [[182,1],[246,95]], [[247,87],[247,1]] ] );
+Symbol.add('line', [ [[12,347],[119,347]] ] );
+
+Symbol.on('N', function(b) {
+	console.log('an N was drawn');
+});
+
+Symbol.on('line', function(b) {
+	console.log('a line was drawn');
+});
+
+</script>
+</body>
+</html>
