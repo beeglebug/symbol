@@ -22,9 +22,7 @@
  * Original P$ algorithm from: http://depts.washington.edu/aimgroup/proj/dollar/pdollar.html
  */
 
-;(function(window) {
-
-/**
+;(function(window) {;/**
  * a 2D Point
  * @constructor
  * @param {Number} x horizontal position
@@ -52,29 +50,50 @@ Point.prototype.distanceTo = function(point) {
 	return Math.sqrt(dx * dx + dy * dy);
 };
 
+
+/**
+ * Create a copy of this Point
+ * @returns {Point} a copy of this Point
+ */
 Point.prototype.clone = function() {
 	return new Point(this.x, this.y, this.id);
 };
 
+
+/**
+ * [[Description]]
+ * @param   {Object}   point [[Description]]
+ * @returns {[[Type]]} [[Description]]
+ */
 Point.prototype.add = function(point) {
 	this.x += point.x;
 	this.y += point.y;
 	return this;
 };
 
+
+/**
+ * [[Description]]
+ * @param   {Object}   point [[Description]]
+ * @returns {[[Type]]} [[Description]]
+ */
 Point.prototype.subtract = function(point) {
 	this.x -= point.x;
 	this.y -= point.y;
 	return this;
 };
 
+
+/**
+ * [[Description]]
+ * @param   {[[Type]]} scalar [[Description]]
+ * @returns {[[Type]]} [[Description]]
+ */
 Point.prototype.divide = function(scalar) {
 	this.x /= scalar;
 	this.y /= scalar;
 	return this;
-};
-
-/**
+};;/**
  * A collection of Points representing a symbol
  * @constructor
  * @param {String} name a name for the symbol
@@ -261,15 +280,11 @@ PointCloud.prototype.distanceTo = function(cloud, start) {
 	} while (i != start);
 
 	return sum;
-};
-
-
-
-/**
- * SymbolRecognizer
+};;/**
+ * Recognizer
  * @constructor
  */
-var SymbolRecognizer = function() {
+var Recognizer = function() {
 
 	this.pointClouds = [];
 	this.listeners = {};
@@ -282,7 +297,7 @@ var SymbolRecognizer = function() {
  * register mouse/touch events on an element
  * @param {HTMLElement} target which element to register event listeners on
  */
-SymbolRecognizer.prototype.registerEvents = function(target) {
+Recognizer.prototype.registerEvents = function(target) {
 
 	var drawing = false;
 	var symbol = [];
@@ -314,7 +329,7 @@ SymbolRecognizer.prototype.registerEvents = function(target) {
  * @param  {Function} callback [description]
  * @return {[type]}            [description]
  */
-SymbolRecognizer.prototype.on = function(name, callback) {
+Recognizer.prototype.on = function(name, callback) {
 
 	if(!this.listeners[name]) {
 		this.listeners[name] = [];
@@ -329,7 +344,7 @@ SymbolRecognizer.prototype.on = function(name, callback) {
  * @param  {[type]} pointsList [description]
  * @return {[type]}            [description]
  */
-SymbolRecognizer.prototype.recognize = function(pointsList) {
+Recognizer.prototype.recognize = function(pointsList) {
 
 	// If not enough points are passed in make sure it doesn't break.
 	if ( pointsList[0].length <= 1 ) { return; }
@@ -366,7 +381,7 @@ SymbolRecognizer.prototype.recognize = function(pointsList) {
  * @param {String} name a name for the symbol
  * @param {Array} pointList the points which make up the symbol
  */
-SymbolRecognizer.prototype.add = function(name, pointList) {
+Recognizer.prototype.add = function(name, pointList) {
 
 	this.pointClouds.push( new PointCloud(name, pointList) );
 
@@ -379,7 +394,7 @@ SymbolRecognizer.prototype.add = function(name, pointList) {
  * @param {PointCloud} cloud2 another point cloud
  * @return {Number} the smallest distance between clouds
  */
-SymbolRecognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
+Recognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
 
 	var i, len = cloud1.points.length,
 		step = Math.floor(Math.pow(len, 0.5)),
@@ -394,10 +409,7 @@ SymbolRecognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
 	}
 
 	return min;
-};
-
-
-// export global
-window.Symbol = new SymbolRecognizer();
+};;// export global
+window.Symbol = new Recognizer();
 
 })(window);
