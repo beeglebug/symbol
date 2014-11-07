@@ -68,22 +68,11 @@ Point.prototype.subtract = function(point) {
 	return this;
 };
 
-Point.prototype.multiply = function(scalar) {
-	this.x *= scalar;
-	this.y *= scalar;
-	return this;
-};
-
 Point.prototype.divide = function(scalar) {
 	this.x /= scalar;
 	this.y /= scalar;
 	return this;
 };
-
-Point.prototype._add = function(point) { return this.clone().add(point); }
-Point.prototype._subtract = function(point) { return this.clone().subtract(point); }
-Point.prototype._multiply = function(scalar) { return this.clone().multiply(scalar); }
-Point.prototype._divide = function(scalar) { return this.clone().divide(scalar); }
 
 /**
  * A collection of Points representing a symbol
@@ -185,7 +174,7 @@ PointCloud.prototype.scale = function() {
 	var size = Math.max(max.x - min.x, max.y - min.y);
 
 	for (var i = 0; i < this.points.length; i++) {
-		scaled.push( this.points[i]._subtract(min).divide(size) );
+		scaled.push( this.points[i].clone().subtract(min).divide(size) );
 	}
 
 	return scaled;
@@ -200,10 +189,10 @@ PointCloud.prototype.translateTo = function(origin) {
 
 	var translated = [],
 		centroid = this.centroid(),
-		offset = origin._subtract(centroid);
+		offset = origin.clone().subtract(centroid);
 
 	for (var i = 0, len = this.points.length; i < len; i++) {
-		translated.push( this.points[i]._add(offset) );
+		translated.push( this.points[i].clone().add(offset) );
 	}
 
 	return translated;
@@ -407,18 +396,6 @@ SymbolRecognizer.prototype.greedyCloudMatch = function(cloud1, cloud2) {
 	return min;
 };
 
-
-/**
- * Set configuration options for the recognizer
- * @param  {[type]} options [description]
- * @return {[type]}         [description]
- */
-SymbolRecognizer.prototype.config = function(options) {
-
-	for(option in options) {
-		// @todo
-	}
-};
 
 // export global
 window.Symbol = new SymbolRecognizer();
