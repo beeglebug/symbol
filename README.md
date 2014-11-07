@@ -1,7 +1,6 @@
-symbol
+Symbol
 ======
-
-Symbol - A Javascript gesture recognition library
+A simple Javascript gesture recognition library.
 
 ```javascript
 // define a symbol
